@@ -1539,6 +1539,24 @@ void MainWindow::stopAudioStreaming()
     rx->stop_udp_streaming();
 }
 
+// TODO: Endianness is the machine endianness (right?), we could get that at compile time to be super duper portable
+static const QString sigmf_meta_template = R"({'
+    "global": {
+        "core:datatype": "cf32_le",
+        "core:sample_rate": %1,
+        "core:version": "v1.0.0",
+        "core:recorder": "gqrx )" VERSION R"("
+    },
+    "captures": [
+        {
+            "core:sample_start": 0,
+            "core:frequency": %2,
+            "core:datetime": '"yyyy-MM-dd"'
+        }
+    ],
+    "annotations": []
+}')";
+
 /** Start I/Q recording. */
 void MainWindow::startIqRecording(const QString& recdir)
 {
@@ -1548,13 +1566,24 @@ void MainWindow::startIqRecording(const QString& recdir)
     auto freq = (qint64)(rx->get_rf_freq());
     auto sr = (qint64)(rx->get_input_rate());
     auto dec = (quint32)(rx->get_input_decim());
-    auto lastRec = QDateTime::currentDateTimeUtc().
-            toString("%1/gqrx_yyyyMMdd_hhmmss_%2_%3_fc.'raw'")
-            .arg(recdir).arg(freq).arg(sr/dec);
+    auto currentDate = QDateTime::currentDateTimeUtc();
+    auto filenameTemplate = currentDate.toString("%1/gqrx_yyyyMMdd_hhmmss_%2_%3_fc.%4").arg(recdir).arg(freq).arg(sr/dec);
+    auto lastRec = filenameTemplate.arg("sigmf-data");
+
+    auto meta = currentDate.toString(sigmf_meta_template).arg(sr/dec).arg(freq).toStdString();
+    auto metaFile = QFile(filenameTemplate.arg("sigmf-meta"));
+    if (!metaFile.open(QIODevice::WriteOnly | QIODevice::Text) || metaFile.write(meta.data(), meta.size()) != meta.size()) {
+        qDebug() << "Couldn't write metadata file";
+        // TODO: handle inability to write metadata file
+    }
+    metaFile.close();
 
     // start recorder; fails if recording already in progress
     if (rx->start_iq_recording(lastRec.toStdString()))
     {
+        // remove metadata file
+        metaFile.remove();
+
         // reset action status
         ui->statusBar->showMessage(tr("Error starting I/Q recoder"));
 
