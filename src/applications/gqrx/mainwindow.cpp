@@ -1572,17 +1572,15 @@ void MainWindow::startIqRecording(const QString& recdir)
 
     auto meta = currentDate.toString(sigmf_meta_template).arg(sr/dec).arg(freq).toStdString();
     auto metaFile = QFile(filenameTemplate.arg("sigmf-meta"));
-    if (!metaFile.open(QIODevice::WriteOnly | QIODevice::Text) || metaFile.write(meta.data(), meta.size()) != meta.size()) {
-        qDebug() << "Couldn't write metadata file";
-        // TODO: handle inability to write metadata file
-    }
-    metaFile.close();
 
     // start recorder; fails if recording already in progress
-    if (rx->start_iq_recording(lastRec.toStdString()))
+    if (!metaFile.open(QIODevice::WriteOnly | QIODevice::Text)
+            || metaFile.write(meta.data(), meta.size()) != meta.size()
+            || rx->start_iq_recording(lastRec.toStdString()))
     {
-        // remove metadata file
-        metaFile.remove();
+        // remove metadata file if we managed to open it
+        if (metaFile.isOpen())
+            metaFile.remove();
 
         // reset action status
         ui->statusBar->showMessage(tr("Error starting I/Q recoder"));
