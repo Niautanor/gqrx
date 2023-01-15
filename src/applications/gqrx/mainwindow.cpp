@@ -1539,24 +1539,6 @@ void MainWindow::stopAudioStreaming()
     rx->stop_udp_streaming();
 }
 
-// TODO: Endianness is the machine endianness (right?), we could get that at compile time to be super duper portable
-static const QString sigmf_meta_template = R"({'
-    "global": {
-        "core:datatype": "cf32_le",
-        "core:sample_rate": %1,
-        "core:version": "v1.0.0",
-        "core:recorder": "gqrx )" VERSION R"("
-    },
-    "captures": [
-        {
-            "core:sample_start": 0,
-            "core:frequency": %2,
-            "core:datetime": '"yyyy-MM-dd"'
-        }
-    ],
-    "annotations": []
-}')";
-
 /** Start I/Q recording. */
 void MainWindow::startIqRecording(const QString& recdir)
 {
@@ -1570,12 +1552,25 @@ void MainWindow::startIqRecording(const QString& recdir)
     auto filenameTemplate = currentDate.toString("%1/gqrx_yyyyMMdd_hhmmss_%2_%3_fc.%4").arg(recdir).arg(freq).arg(sr/dec);
     auto lastRec = filenameTemplate.arg("sigmf-data");
 
-    auto meta = currentDate.toString(sigmf_meta_template).arg(sr/dec).arg(freq).toStdString();
+    auto meta = QJsonDocument { QJsonObject {
+        {"global", QJsonObject {
+            {"core:datatype", "cf32_le"}, // does anyone use gqrx on big endian platforms?
+            {"core:sample_rate", sr/dec},
+            {"core:version", "v1.0.0"},
+            {"core:recorder", "gqrx " VERSION},
+        }}, {"captures", QJsonArray {
+            QJsonObject {
+                {"core:sample_start", 0},
+                {"core:frequency", freq},
+                {"core:datetime", currentDate.toString("yyyy-MM-dd")},
+            },
+        }}, {"annotations", QJsonArray {}},
+    }}.toJson();
     auto metaFile = QFile(filenameTemplate.arg("sigmf-meta"));
 
     // start recorder; fails if recording already in progress
-    if (!metaFile.open(QIODevice::WriteOnly | QIODevice::Text)
-            || metaFile.write(meta.data(), meta.size()) != meta.size()
+    if (!metaFile.open(QIODevice::WriteOnly)
+            || metaFile.write(meta) != meta.size()
             || rx->start_iq_recording(lastRec.toStdString()))
     {
         // remove metadata file if we managed to open it
