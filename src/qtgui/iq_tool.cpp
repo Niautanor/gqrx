@@ -175,7 +175,7 @@ void CIqTool::on_recButton_clicked(bool checked)
     if (checked)
     {
         ui->playButton->setEnabled(false);
-        emit startRecording(recdir->path());
+        emit startRecording(recdir->path(), ui->formatCombo->currentText());
 
         refreshDir();
         ui->listWidget->setCurrentRow(ui->listWidget->count()-1);
