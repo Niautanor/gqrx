@@ -32,6 +32,7 @@
 #include <QDialogButtonBox>
 #include <QFile>
 #include <QGroupBox>
+#include <QJsonDocument>
 #include <QKeySequence>
 #include <QLineEdit>
 #include <QMessageBox>
