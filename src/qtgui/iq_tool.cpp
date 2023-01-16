@@ -53,6 +53,7 @@ CIqTool::CIqTool(QWidget *parent) :
     //ui->recDirEdit->setText(QDir::currentPath());
 
     recdir = new QDir(QDir::homePath(), "*.raw");
+    recdir->setNameFilters(recdir->nameFilters() << "*.sigmf-data");
 
     error_palette = new QPalette();
     error_palette->setColor(QPalette::Text, Qt::red);
